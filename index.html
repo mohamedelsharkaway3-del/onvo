@@ -140,10 +140,12 @@ async function doLogin() {
       if(isFirst) showToast && showToast('مبروك! أنت الـ Founder 👑','🎉','blue');
     }
 
-    sessionStorage.setItem('onvo_user',JSON.stringify({
+    const userData = JSON.stringify({
       id:profile.id, email:profile.email, name:profile.name,
       role:profile.role, whatsapp:profile.whatsapp
-    }));
+    });
+    sessionStorage.setItem('onvo_user', userData);
+    localStorage.setItem('onvo_user', userData);
 
     btn.innerHTML=`✓ أهلاً ${profile.name.split(' ')[0]}، جاري التحويل…`;
     setTimeout(()=>{ window.location.href='app.html'; },600);
