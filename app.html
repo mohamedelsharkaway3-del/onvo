@@ -766,25 +766,8 @@ let allTasks=[], teamMembers=[], auditEvents=[], pendingFiles=[], currentAttachT
 //  INIT
 // ══════════════════════════════════
 window.addEventListener('DOMContentLoaded', async () => {
-
-  // ── أول حاجة: جرب الـ sessionStorage فوراً ──
-  const stored = sessionStorage.getItem('onvo_user');
-  if (stored) {
-    try {
-      currentUser = JSON.parse(stored);
-      launchApp();
-      // تحديث الـ role في الخلفية
-      refreshProfileInBackground();
-      return;
-    } catch(e) {}
-  }
-
-  // ── لو مفيش cache: جيب من Supabase مع timeout ──
   try {
-    const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000));
-    const authCall = sb.auth.getSession();
-    const { data: { session } } = await Promise.race([authCall, timeout]);
-
+    const { data: { session } } = await sb.auth.getSession();
     if (!session) { window.location.href = 'index.html'; return; }
 
     let { data: profile } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
@@ -800,48 +783,32 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     currentUser = { id: profile.id, email: profile.email, name: profile.name, role: profile.role, whatsapp: profile.whatsapp };
     sessionStorage.setItem('onvo_user', JSON.stringify(currentUser));
-    launchApp();
 
   } catch(e) {
-    console.error('Auth error:', e.message);
-    window.location.href = 'index.html';
+    console.error('Auth error:', e);
+    const stored = sessionStorage.getItem('onvo_user');
+    if (!stored) { window.location.href = 'index.html'; return; }
+    try { currentUser = JSON.parse(stored); } catch(e2) { window.location.href = 'index.html'; return; }
   }
-});
 
-async function refreshProfileInBackground() {
-  try {
-    const { data: { session } } = await sb.auth.getSession();
-    if (!session) return;
-    const { data: profile } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
-    if (profile && profile.role !== currentUser.role) {
-      // الـ role اتغير — حدّث بدون reload
-      currentUser.role = profile.role;
-      sessionStorage.setItem('onvo_user', JSON.stringify(currentUser));
-      if (profile.role === 'founder') {
-        document.body.classList.add('is-founder');
-        buildNav(); buildTrackerUI(); buildMotivEditor();
-      }
-    }
-  } catch(e) {}
-}
-
-function launchApp() {
+  // إخفاء اللودر فوراً
   document.getElementById('appLoader').style.display = 'none';
   document.getElementById('appLayout').style.display = 'flex';
 
+  // Founder class
   if (currentUser.role === 'founder') document.body.classList.add('is-founder');
 
-  initUser(); buildNav(); buildClients(); buildPlanner(); buildChart();
-  newQuote(); newMotiv(); setGreeting(); startParticles();
+  // بناء الـ UI الأساسي أولاً بدون استنا
+  initUser(); buildNav(); buildClients(); buildPlanner(); buildChart(); newQuote(); newMotiv(); setGreeting(); startParticles();
 
   const sp = (currentUser.role==='standard'||currentUser.role==='limited') ? 'mytasks' : 'dashboard';
   navigateTo(sp);
   showToast(`نورت الشركة يا ${currentUser.name.split(' ')[0]}! 🔥`, '⬡', 'blue');
 
-  // بيانات في الخلفية
+  // جلب البيانات في الخلفية بدون await
   loadTasks();
   loadTeam();
-}
+});
 
 // ══════════════════════════════════
 //  TASKS — Supabase
